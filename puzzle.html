@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html class="h-100">
+<head>
+	<title>javascript slide puzzle</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+	<title>javascript chatter</title>
+	<style>
+		#image-area {
+			position: relative;
+			display: block;
+			width: 500px;
+			height: 500px;
+			
+			margin-top: 260px;
+		}
+		.piece {
+			position: absolute;
+			top : 0;
+			left: 0;
+			border: 1px solid #fafbfc;
+			border-radius:8px;
+		}
+		.preview {
+			width: 200px;
+			height: 200px;
+		}
+		.preview-area {
+			position: absolute;
+			top : 0px;
+			left: 0px;
+			padding-right: 9px;
+			box-shadow: 2px 0px 2px 0px #0000001f;
+		}
+	</style>
+</head>
+<body>
+	<canvas class="d-none" id="temp-area"></canvas>
+	<div class="preview-area h-100 mx-2 pt-2">
+		<img class="preview" id="preview-area"/>
+		<div>
+			<h6 class="d-inline-flex mt-3">Image</h6>
+			<select class="d-inline-flex mt-2" style="width:142px;" id="image-input">
+				<option value="seal.jpg">seal</option>
+				<option value="mountain.jpg">mountain</option>
+				<option value="clock.jpg">clock</option>
+				<option value="bunny.jpg">bunny</option>
+			</select>
+			<br />
+			<h6 class="d-inline-flex">Puzzle size</h6>
+			<select class="d-inline-flex mt-2" style="width:110px;" id="puzzle-size">
+				<option value="2">2 * 2</option>
+				<option value="3">3 * 3</option>
+				<option value="4">4 * 4</option>
+				<option value="5">5 * 5</option>
+				<option value="8">8 * 8</option>
+				<option value="10">10 * 10</option>
+			</select>
+			<button class="btn btn-primary btn-block mt-2" onclick="start()">Start</button>
+		</div>
+	</div>
+	<div class="mx-auto" id="image-area">
+	</div>
+	<script>
+		const width = 500, height = 500;
+		const context = document.getElementById("temp-area").getContext('2d');
+		
+		context.canvas.width = width;
+		context.canvas.height = height;
+		
+		function init(image_name, callback) {
+			const base_image = new Image(width, height);
+			document.getElementById("preview-area").src = "./" + image_name;
+			base_image.src = "./" + image_name;
+			base_image.onload = function() {
+				context.drawImage(base_image, 0, 0, width, height);
+				callback();
+			}
+		}
+		
+		var remPos = [0,-1];
+		var images = [];
+		var started = false;
+		
+		function crop(x, y, size_x, size_y) {
+			const image = new Image(size_x, size_y);
+			const data = context.getImageData(x, y, x + size_x, y + size_y);
+			
+			const temp = document.createElement('canvas');
+			temp.width = size_x;
+			temp.height = size_y;
+			temp.getContext('2d').putImageData(data, 0, 0);
+			
+			image.src = temp.toDataURL();
+			
+			return image;
+		}
+		
+		function addImage(x, y, size_x, size_y, image) {
+			image.classList.add("piece");
+			image.style["top"] = y * size_y + "px";
+			image.style["left"] = x * size_x + "px";
+			document.getElementById('image-area').appendChild(image);
+		}
+		
+		function generatePieces(count_x, count_y) {
+			const size_x = width / count_x;
+			const size_y = height / count_y;
+			
+			for (let x = 0; x < count_x; x++) {
+				for (let y = 0; y < count_y; y++) {
+					const cropped = crop(x * size_x, y * size_y, size_x, size_y);
+					addImage(x, y, size_x, size_y, cropped);
+					cropped.id = "p" + x + "-" + y;
+					cropped.dataset.x = x;
+					cropped.dataset.y = y;
+					
+					cropped.addEventListener("click", function(e){
+						movePiece(cropped, size_x, size_y, count_x, count_y);
+					});
+					
+					images.push(cropped);
+				}
+			}
+			
+			shuffle(count_x * count_y * count_x * count_y * 10, size_x, size_y, count_x, count_y);
+			started = true;
+		}
+		
+		function movePiece(cropped, size_x, size_y, count_x, count_y) {
+			const check_x = parseInt(cropped.dataset.x);
+			const check_y = parseInt(cropped.dataset.y);
+		
+			if (checkNear(check_x, check_y, check_x - 1, check_y, count_x, count_y)) {
+				// can move left
+				remPos = [cropped.dataset.x, cropped.dataset.y];
+				cropped.dataset.x = check_x - 1;
+			} else if (checkNear(check_x, check_y, check_x + 1, check_y, count_x, count_y)) {
+				// can move right
+				remPos = [cropped.dataset.x, cropped.dataset.y];
+				cropped.dataset.x = check_x + 1;
+			} else if (checkNear(check_x, check_y, check_x, check_y - 1, count_x, count_y)) {
+				// can move top
+				remPos = [cropped.dataset.x, cropped.dataset.y];
+				cropped.dataset.y = check_y - 1;
+			} else if (checkNear(check_x, check_y, check_x, check_y + 1, count_x, count_y)) {
+				// can move bottom
+				remPos = [cropped.dataset.x, cropped.dataset.y];
+				cropped.dataset.y = check_y + 1;
+			}
+			
+			cropped.style["left"] = cropped.dataset.x * size_x + "px";
+			cropped.style["top"] = cropped.dataset.y * size_y + "px";
+			
+			if(started && checkClear()) {
+				started = false;
+				setTimeout(function(){
+					alert("Clear");
+				}, 30);
+			}
+		}
+		
+		function checkClear() {
+			for(index in images) {
+				const image = images[index];
+				const xy = image.id.slice(1).split('-');
+				const x = xy[0];
+				const y = xy[1];
+				
+				if(x != image.dataset.x || y != image.dataset.y)
+					return false;
+			}
+			
+			return true;
+		}
+		
+		function checkNear(x, y, target_x, target_y, count_x, count_y) {
+			if(x < 0 || x >= count_x)
+				return false;
+			if(y < -1 || y >= count_y)
+				return false;
+			if(y == -1 && x != 0)
+				return false;
+		
+			if(x == target_x && Math.abs(y - target_y) == 1)
+				if(target_x == remPos[0] && target_y == remPos[1])
+					return true;
+			if(y == target_y && Math.abs(x - target_x) == 1)
+				if(target_x == remPos[0] && target_y == remPos[1])
+					return true;
+					
+			return false;
+		}
+		
+		function clearAll() {
+			started = false;
+			images = [];
+			remPos = [0,-1];
+			document.getElementById('image-area').innerHTML = "";
+		}
+		
+		function start() {
+			clearAll();
+			init(document.getElementById("image-input").value, function() {
+				const size = parseInt(document.getElementById("puzzle-size").value);
+				generatePieces(size, size);
+			});
+		}
+		
+		function shuffle(count, size_x, size_y, count_x, count_y) {
+			for(let i = 0; i < count; i++) {
+				movePiece(images[Math.floor(Math.random() * images.length)], size_x, size_y, count_x, count_y);
+			}
+		}
+		
+		init(document.getElementById("image-input").value, function(){});
+	</script>
+</body>
+</html>
