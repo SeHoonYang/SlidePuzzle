@@ -12,6 +12,7 @@
 			height: 500px;
 			
 			margin-top: 260px;
+			margin-left: max(calc(50% - 141px), 260px);
 		}
 		.piece {
 			position: absolute;
@@ -58,7 +59,7 @@
 			<button class="btn btn-primary btn-block mt-2" onclick="start()">Start</button>
 		</div>
 	</div>
-	<div class="mx-auto" id="image-area">
+	<div id="image-area">
 	</div>
 	<script>
 		const width = 500, height = 500;
@@ -202,6 +203,7 @@
 			clearAll();
 			init(document.getElementById("image-input").value, function() {
 				const size = parseInt(document.getElementById("puzzle-size").value);
+				document.getElementById("image-area").style["margin-top"] = 500 / size + 100 + "px";
 				generatePieces(size, size);
 			});
 		}
